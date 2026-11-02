@@ -13,13 +13,26 @@ _.file = ".env.local"
 description = "Generate sqlc and templ code"
 run = "sqlc generate && templ generate"
 
-[tasks.css]
+[tasks.css-dev]
+description = "Build Tailwind CSS (unminified, readable for dev)"
+run = "tailwindcss -i ./static/css/input.css -o ./static/css/app.css"
+
+[tasks.css-prod]
 description = "Build Tailwind CSS (minified, for prod builds)"
 run = "tailwindcss -i ./static/css/input.css -o ./static/css/app.css --minify"
 
 [tasks.test]
 description = "Run tests"
 run = "go test ./..."
+
+[tasks.lint]
+description = "Lint all packages"
+run = "go vet ./..."
+
+[tasks.check]
+description = "Run generators, then lint and tests in parallel"
+depends = ["generate"]
+run = "mise run lint ::: test"
 
 [tasks.test-race]
 description = "Run tests with race detector"
@@ -38,10 +51,6 @@ done
 DATABASE_URL=postgres://postgres:postgres@localhost:5433/todos?sslmode=disable INTEGRATION_TESTS=1 go test ./integration -v
 """
 
-[tasks.check]
-description = "Run generators, vet, and tests"
-depends = ["generate"]
-run = "go vet ./... && go test ./..."
 
 [tasks.db-apply]
 description = "Apply desired schema to dev database (sqldef, declarative)"
@@ -82,9 +91,7 @@ depends = ["db-apply"]
 # runs air piping logs to my script that prettyfies json slog's, fallsback to just air
 run = "if command -v slogc >/dev/null 2>&1; then air 2>&1 | slogc; else air; fi"
 
-
-
 [tasks.build]
 description = "Build the prod binary (minified CSS)"
-depends = ["generate", "css"]
+depends = ["generate", "css-prod"]
 run = "go build -o ./tmp/app ."

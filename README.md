@@ -85,7 +85,7 @@ New domain = new subpackage with `Register(mux, Deps)`, called from `server.NewH
 ## Tasks
 
 ```bash
-mise run generate | css | dev | build
+mise run generate | css-dev | css-prod | dev | build
 mise run db | db-plan | db-apply
-mise run test | test-race | test-int | check
+mise run test | test-race | test-int | lint | check
 ```
