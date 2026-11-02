@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"testing"
 
-	"go-htmx-todo/internal/handlers/auth"
+	"go-htmx-todo/handlers/auth"
 )
 
 // doSignup posts the signup form, returning the response and the session

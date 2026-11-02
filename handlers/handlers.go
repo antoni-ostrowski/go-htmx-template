@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strconv"
 
-	db "go-htmx-todo/internal/db/sqlc"
+	db "go-htmx-todo/db/sqlc"
 
 	"github.com/alexedwards/scs/v2"
 	"go.opentelemetry.io/otel/codes"

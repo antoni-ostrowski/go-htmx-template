@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"go-htmx-todo/internal/handlers"
+	"go-htmx-todo/handlers"
 )
 
 // Register serves dir at GET /static/. Directory listings are 404;

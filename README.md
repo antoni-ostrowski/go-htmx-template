@@ -53,7 +53,7 @@ APP_ENV=production             # INFO+ export; otherwise DEBUG+
 
 ## Database
 
-`internal/db/schema.sql` is the source of truth for both sqldef and sqlc. Edit it, then `mise run generate` → `db-plan` → `db-apply`.
+`db/schema.sql` is the source of truth for both sqldef and sqlc. Edit it, then `mise run generate` → `db-plan` → `db-apply`.
 
 ## Styling
 
@@ -71,11 +71,11 @@ mise run test-int   # disposable Postgres, full suite
 
 ```text
 main.go
-internal/server/         Run + NewServer + NewHandler
-internal/db/             schema.sql, queries.sql, sqlc/
-internal/handlers/       handlers.go + todo/ + auth/ + static/
-internal/obs/            OTel setup + log handler
-internal/integration/    HTTP + DB tests
+server/         Run + NewServer + NewHandler
+db/             schema.sql, queries.sql, sqlc/
+handlers/       handlers.go + todo/ + auth/ + static/
+obs/            OTel setup + log handler
+integration/    HTTP + DB tests
 static/                  css input, vendored htmx
 templates/               layout, todos, auth
 ```

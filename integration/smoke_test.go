@@ -3,14 +3,13 @@ package integration_test
 import (
 	"context"
 	"io"
-	"log/slog"
 	"net/http"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
-	"go-htmx-todo/internal/server"
+	"go-htmx-todo/server"
 )
 
 // TestSmoke_RunServes boots the real server.Run stack (OTel path, pool,
@@ -24,9 +23,6 @@ func TestSmoke_RunServes(t *testing.T) {
 	if databaseURL == "" {
 		databaseURL = "postgres://postgres:postgres@localhost:5432/todos?sslmode=disable"
 	}
-	prev := slog.Default()
-	defer slog.SetDefault(prev)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	runErr := make(chan error, 1)

@@ -8,7 +8,7 @@ package templates
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import db "go-htmx-todo/internal/db/sqlc"
+import db "go-htmx-todo/db/sqlc"
 import "fmt"
 
 // Page is FULL page. Only the GET / handler uses it. username is "" when

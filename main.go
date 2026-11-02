@@ -7,10 +7,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"go-htmx-todo/internal/server"
+	"go-htmx-todo/obs"
+	"go-htmx-todo/server"
 )
-
-const APP_NAME = "go-htmx-template"
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -24,8 +23,9 @@ func main() {
 		DatabaseURL: databaseURL,
 		StaticDir:   "static",
 		Addr:        ":8080",
-		Service:     APP_NAME,
+		Service:     "go-htmx-template",
 	}
+	slog.SetDefault(slog.New(obs.NewLogHandler(cfg.Service)))
 	if err := server.Run(ctx, cfg); err != nil {
 		slog.Error("server error", "err", err)
 		os.Exit(1)

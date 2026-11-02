@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	db "go-htmx-todo/internal/db/sqlc"
-	"go-htmx-todo/internal/handlers"
+	db "go-htmx-todo/db/sqlc"
+	"go-htmx-todo/handlers"
 	"go-htmx-todo/templates"
 
 	"github.com/a-h/templ"

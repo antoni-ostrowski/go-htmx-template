@@ -35,7 +35,7 @@ for i in $(seq 1 30); do
   docker exec go-htmx-todo-test-db pg_isready -U postgres -d todos >/dev/null 2>&1 && break
   sleep 1
 done
-DATABASE_URL=postgres://postgres:postgres@localhost:5433/todos?sslmode=disable INTEGRATION_TESTS=1 go test ./internal/integration -v
+DATABASE_URL=postgres://postgres:postgres@localhost:5433/todos?sslmode=disable INTEGRATION_TESTS=1 go test ./integration -v
 """
 
 [tasks.check]
@@ -46,15 +46,15 @@ run = "go vet ./... && go test ./..."
 [tasks.db-apply]
 description = "Apply desired schema to dev database (sqldef, declarative)"
 depends = ["db"]
-run = "PGPASSWORD=postgres PGSSLMODE=disable psqldef -U postgres -h 127.0.0.1 -p 5432 todos --apply --enable-drop --file internal/db/schema.sql"
+run = "PGPASSWORD=postgres PGSSLMODE=disable psqldef -U postgres -h 127.0.0.1 -p 5432 todos --apply --enable-drop --file db/schema.sql"
 
 [tasks.db-plan]
 description = "Show planned schema changes without applying"
-run = "PGPASSWORD=postgres PGSSLMODE=disable psqldef -U postgres -h 127.0.0.1 -p 5432 todos --dry-run --file internal/db/schema.sql"
+run = "PGPASSWORD=postgres PGSSLMODE=disable psqldef -U postgres -h 127.0.0.1 -p 5432 todos --dry-run --file db/schema.sql"
 
 [tasks.db-validate]
 description = "Validate schema (offline parse + idempotency check)"
-run = "psqldef internal/db/schema.sql --file internal/db/schema.sql"
+run = "psqldef db/schema.sql --file db/schema.sql"
 
 [tasks.db]
 description = "Start (or reuse) the local Postgres dev container"

@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	db "go-htmx-todo/internal/db/sqlc"
-	"go-htmx-todo/internal/handlers"
-	"go-htmx-todo/internal/handlers/auth"
+	db "go-htmx-todo/db/sqlc"
+	"go-htmx-todo/handlers"
+	"go-htmx-todo/handlers/auth"
 	"go-htmx-todo/templates"
 
 	"github.com/jackc/pgx/v5"

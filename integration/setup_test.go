@@ -7,10 +7,10 @@ import (
 	"net/url"
 	"testing"
 
-	db "go-htmx-todo/internal/db/sqlc"
-	"go-htmx-todo/internal/handlers"
-	"go-htmx-todo/internal/handlers/auth"
-	"go-htmx-todo/internal/server"
+	db "go-htmx-todo/db/sqlc"
+	"go-htmx-todo/handlers"
+	"go-htmx-todo/handlers/auth"
+	"go-htmx-todo/server"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/google/uuid"
