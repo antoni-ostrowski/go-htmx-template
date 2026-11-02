@@ -1,4 +1,4 @@
-# Built Tailwind output; regenerate with `mise run css`.
+# Built Tailwind output; regenerate with `mise run css-dev` (dev) or `mise run css-prod` (prod).
 static/css/app.css
 # Air hot-reload output.
 tmp/

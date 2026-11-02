@@ -1,14 +1,12 @@
 # Go + HTMX + templ reference
 
-Server-rendered HTMX todo app. `net/http`, `templ`, `sqlc`, PostgreSQL, `scs` sessions, OpenTelemetry. Minimal template.
+Minimal template for Server-rendered Go/HTMX web apps. Uses `net/http`, `templ`, `sqlc`, PostgreSQL, `scs` sessions, OpenTelemetry.
 
 ## Run
 
 Needs PostgreSQL. Default: `postgres://postgres:postgres@localhost:5432/todos?sslmode=disable`
 
 ```bash
-mise run generate      # sqlc + templ codegen
-mise run db-apply      # apply schema (sqldef, no migration files)
 mise run dev           # hot reload (starts dev db, applies schema)
 ```
 
@@ -24,19 +22,6 @@ sqlc         generated DB code from SQL
 ```
 
 Each domain registers its own routes. Handlers call `*db.Queries` directly, templates take rows directly.
-
-## Routes
-
-```text
-GET /                     full page
-POST /todos               add
-POST /todos/{id}/toggle   toggle
-DELETE /todos/{id}        delete
-GET+POST /signup|/signin  auth forms
-POST /signout             log out
-```
-
-Page is public, mutations require login. Anonymous htmx requests get an `HX-Redirect` to sign-in.
 
 ## Auth
 
