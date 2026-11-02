@@ -11,6 +11,7 @@ import (
 
 	db "go-htmx-todo/db/sqlc"
 
+	"github.com/a-h/templ"
 	"github.com/alexedwards/scs/v2"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
@@ -33,20 +34,20 @@ type Telemetry struct {
 
 // WriteError logs err with request context and renders it. 4xx bodies carry
 // the message (client-caused, safe); 5xx bodies stay generic while the real
-// error goes to the log. It uses ErrorContext so the record correlates with
-// the request's trace, and marks the span failed for 5xx (RecordError +
-// Error status) so traces show red. 4xx stays green: client errors are
-// expected behavior, not failures.
-func WriteError(w http.ResponseWriter, r *http.Request, logger *slog.Logger, err error, code int) {
-	if logger == nil {
-		logger = slog.Default()
-	}
-	logger.ErrorContext(r.Context(), "handler error",
+// error goes to the log. It logs via slog.Default (set by main.go in prod)
+// and marks spans failed for 5xx (RecordError + Error status): always the
+// request span, plus any spans passed in (e.g. a child wrapping the failed
+// work) — full red, so both discovery and diagnosis work. 4xx stays green:
+// client errors are expected behavior, not failures.
+func WriteError(w http.ResponseWriter, r *http.Request, err error, code int, spans ...trace.Span) {
+	slog.Default().ErrorContext(r.Context(), "handler error",
 		"method", r.Method, "path", r.URL.Path, "status", code, "err", err)
 	if code >= 500 {
-		span := trace.SpanFromContext(r.Context())
-		span.RecordError(err)
-		span.SetStatus(codes.Error, http.StatusText(code))
+		spans = append(spans, trace.SpanFromContext(r.Context()))
+		for _, s := range spans {
+			s.RecordError(err)
+			s.SetStatus(codes.Error, http.StatusText(code))
+		}
 		http.Error(w, http.StatusText(code), code)
 		return
 	}
@@ -66,6 +67,56 @@ func Route(mux *http.ServeMux, pattern string, h http.Handler) {
 		}
 		h.ServeHTTP(w, r)
 	}))
+}
+
+// Render writes page with 200 OK, routing render failures to WriteError
+// (500). This is the common case; for error-status re-renders (validation,
+// conflicts) use [RenderWithCode].
+func Render(w http.ResponseWriter, r *http.Request, page templ.Component) {
+	render(w, r, page, http.StatusOK)
+}
+
+// RenderWithCode writes page with the given status, routing render failures
+// to WriteError (500). Use it for semantic error renders (422, 409, 401);
+// success renders use Render. Redirects (3xx) never render — use
+// [http.Redirect] instead.
+func RenderWithCode(w http.ResponseWriter, r *http.Request, page templ.Component, code int) {
+	render(w, r, page, code)
+}
+
+func render(w http.ResponseWriter, r *http.Request, page templ.Component, code int) {
+	w.WriteHeader(code)
+	if err := page.Render(r.Context(), w); err != nil {
+		WriteError(w, r, err, http.StatusInternalServerError)
+	}
+}
+
+// Redirect navigates the client to loc whether the request came from htmx
+// or a plain navigation: htmx requests get HX-Redirect + 204 (client-side
+// navigation — an XHR-followed 303 would swap the target page into the
+// current one instead), plain requests get a 303. Preferably use it for
+// every redirect from handlers
+func Redirect(w http.ResponseWriter, r *http.Request, loc string) {
+	redirect(w, r, loc, http.StatusNoContent)
+}
+
+// RedirectWithCode is Redirect with the htmx-branch status overridden (the
+// plain branch is always a 303 — a 4xx to a plain navigation only shows the
+// browser's error page). RequireAuth uses it for 401 denials.
+func RedirectWithCode(w http.ResponseWriter, r *http.Request, loc string, code int) {
+	redirect(w, r, loc, code)
+}
+
+func redirect(w http.ResponseWriter, r *http.Request, loc string, htmxCode int) {
+	htmx := r.Header.Get("HX-Request") == "true"
+	slog.Default().InfoContext(r.Context(), "redirect",
+		"method", r.Method, "path", r.URL.Path, "loc", loc, "htmx", htmx)
+	if htmx {
+		w.Header().Set("HX-Redirect", loc)
+		w.WriteHeader(htmxCode)
+		return
+	}
+	http.Redirect(w, r, loc, http.StatusSeeOther)
 }
 
 // ParseID reads the {id} path value as a positive integer.

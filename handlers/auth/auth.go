@@ -5,22 +5,15 @@ package auth
 
 import (
 	"context"
-	"errors"
-	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 
 	db "go-htmx-todo/db/sqlc"
 	"go-htmx-todo/handlers"
-	"go-htmx-todo/templates"
 
-	"github.com/a-h/templ"
 	"github.com/alexedwards/scs/pgxstore"
 	"github.com/alexedwards/scs/v2"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -50,111 +43,6 @@ func CheckPassword(hash, password string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
 }
 
-// Register wires the auth routes onto mux.
-func Register(mux *http.ServeMux, d handlers.Deps) {
-	handlers.Route(mux, "GET /signup", showSignup(d))
-	handlers.Route(mux, "POST /signup", handleSignup(d))
-	handlers.Route(mux, "GET /signin", showSignin(d))
-	handlers.Route(mux, "POST /signin", handleSignin(d))
-	handlers.Route(mux, "POST /signout", handleSignout(d))
-}
-
-func showSignup(d handlers.Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if err := templates.Signup("").Render(r.Context(), w); err != nil {
-			handlers.WriteError(w, r, d.Logger, err, http.StatusInternalServerError)
-		}
-	}
-}
-
-func handleSignup(d handlers.Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		username := strings.TrimSpace(r.FormValue("username"))
-		password := r.FormValue("password")
-		if username == "" {
-			renderAuth(w, r, d.Logger, http.StatusUnprocessableEntity, templates.Signup("username cannot be empty"))
-			return
-		}
-		if len(password) < 8 {
-			renderAuth(w, r, d.Logger, http.StatusUnprocessableEntity, templates.Signup("password must be at least 8 characters"))
-			return
-		}
-		hash, err := HashPassword(password)
-		if err != nil {
-			handlers.WriteError(w, r, d.Logger, err, http.StatusInternalServerError)
-			return
-		}
-		id, err := NewUserID()
-		if err != nil {
-			handlers.WriteError(w, r, d.Logger, err, http.StatusInternalServerError)
-			return
-		}
-		user, err := d.Queries.CreateUser(ctx, db.CreateUserParams{
-			ID: id, Username: username, PasswordHash: hash,
-		})
-		if err != nil {
-			var pgErr *pgconn.PgError
-			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				renderAuth(w, r, d.Logger, http.StatusConflict, templates.Signup("username is taken"))
-				return
-			}
-			handlers.WriteError(w, r, d.Logger, err, http.StatusInternalServerError)
-			return
-		}
-		if err := login(d, r, user); err != nil {
-			handlers.WriteError(w, r, d.Logger, err, http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Clear-Site-Data", `"cache"`)
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-	}
-}
-
-func showSignin(d handlers.Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if err := templates.Signin("").Render(r.Context(), w); err != nil {
-			handlers.WriteError(w, r, d.Logger, err, http.StatusInternalServerError)
-		}
-	}
-}
-
-func handleSignin(d handlers.Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		user, err := d.Queries.GetUserByUsername(ctx, strings.TrimSpace(r.FormValue("username")))
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				renderAuth(w, r, d.Logger, http.StatusUnauthorized, templates.Signin("invalid username or password"))
-				return
-			}
-			handlers.WriteError(w, r, d.Logger, err, http.StatusInternalServerError)
-			return
-		}
-		if !CheckPassword(user.PasswordHash, r.FormValue("password")) {
-			renderAuth(w, r, d.Logger, http.StatusUnauthorized, templates.Signin("invalid username or password"))
-			return
-		}
-		if err := login(d, r, user); err != nil {
-			handlers.WriteError(w, r, d.Logger, err, http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Clear-Site-Data", `"cache"`)
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-	}
-}
-
-func handleSignout(d handlers.Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if err := d.Sessions.Destroy(r.Context()); err != nil {
-			handlers.WriteError(w, r, d.Logger, err, http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Clear-Site-Data", `"cache"`)
-		http.Redirect(w, r, "/signin", http.StatusSeeOther)
-	}
-}
-
 // login stores the user in a fresh session. RenewToken first so a login
 // never inherits a pre-login session (fixation).
 func login(d handlers.Deps, r *http.Request, user db.User) error {
@@ -165,13 +53,6 @@ func login(d handlers.Deps, r *http.Request, user db.User) error {
 	d.Sessions.Put(ctx, "user_id", user.ID.String())
 	d.Sessions.Put(ctx, "username", user.Username)
 	return nil
-}
-
-func renderAuth(w http.ResponseWriter, r *http.Request, logger *slog.Logger, code int, page templ.Component) {
-	w.WriteHeader(code)
-	if err := page.Render(r.Context(), w); err != nil {
-		handlers.WriteError(w, r, logger, err, http.StatusInternalServerError)
-	}
 }
 
 type AuthData struct {
@@ -199,22 +80,12 @@ func WithAuth(next AuthedHandler, d handlers.Deps) http.HandlerFunc {
 	}
 }
 
-// RequireAuth enforces identity: anonymous htmx requests get 401 with
-// HX-Redirect (the client navigates); plain requests get a 303 redirect.
-// Each redirect is logged so auth gates stay auditable.
+// RequireAuth enforces identity: anonymous requests go to /signin via
+// [handlers.RedirectWithCode].
 func RequireAuth(next AuthedHandler, d handlers.Deps) http.HandlerFunc {
 	return WithAuth(func(w http.ResponseWriter, r *http.Request, a AuthData) {
 		if a.UserID == uuid.Nil {
-			if r.Header.Get("HX-Request") == "true" {
-				w.Header().Set("HX-Redirect", "/signin")
-				d.Logger.InfoContext(r.Context(), "auth required", "method", r.Method, "path", r.URL.Path,
-					"status", http.StatusUnauthorized)
-				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-			d.Logger.InfoContext(r.Context(), "auth required", "method", r.Method, "path", r.URL.Path,
-				"status", http.StatusSeeOther)
-			http.Redirect(w, r, "/signin", http.StatusSeeOther)
+			handlers.RedirectWithCode(w, r, "/signin", http.StatusUnauthorized)
 			return
 		}
 		next(w, r, a)
