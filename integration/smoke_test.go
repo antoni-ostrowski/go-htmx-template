@@ -29,7 +29,6 @@ func TestSmoke_RunServes(t *testing.T) {
 	go func() {
 		runErr <- server.Run(ctx, server.Config{
 			DatabaseURL: databaseURL,
-			StaticDir:   "../../static",
 			Addr:        "127.0.0.1:18081",
 			Service:     "smoke",
 		})

@@ -29,7 +29,6 @@ import (
 // main.go fills it from env; tests fill it with test values.
 type Config struct {
 	DatabaseURL string
-	StaticDir   string
 	Addr        string
 	Service     string
 }
@@ -76,7 +75,7 @@ func Run(ctx context.Context, cfg Config) error {
 		Sessions: sessions, Logger: logger,
 		Tel: &handlers.Telemetry{Tracer: otel.Tracer(cfg.Service), Meter: otel.Meter(cfg.Service)},
 	}
-	srv := NewServer(deps, cfg.StaticDir, cfg.Addr)
+	srv := NewServer(deps, cfg.Addr)
 
 	srvErr := make(chan error, 1)
 	go func() {
@@ -105,21 +104,21 @@ func Run(ctx context.Context, cfg Config) error {
 }
 
 // NewServer builds the production-ready http.Server around NewHandler.
-func NewServer(d handlers.Deps, staticDir, addr string) *http.Server {
+func NewServer(d handlers.Deps, addr string) *http.Server {
 	return &http.Server{
 		Addr:              addr,
-		Handler:           NewHandler(d, staticDir),
+		Handler:           NewHandler(d),
 		ReadHeaderTimeout: 5 * time.Second,
 		WriteTimeout:      10 * time.Second,
 	}
 }
 
-// NewHandler registers every domain and wraps the mux. staticDir is "static"
-// in prod, the test tree path in tests.
-func NewHandler(d handlers.Deps, staticDir string) http.Handler {
+// NewHandler registers every domain and wraps the mux. Static assets come
+// from the embedded FS, so no dir argument is needed in any environment.
+func NewHandler(d handlers.Deps) http.Handler {
 	mux := http.NewServeMux()
 	todo.Register(mux, d)
 	auth.Register(mux, d)
-	static.Register(mux, staticDir)
+	static.Register(mux)
 	return otelhttp.NewHandler(d.Sessions.LoadAndSave(mux), "server")
 }

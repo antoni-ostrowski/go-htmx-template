@@ -21,7 +21,6 @@ func main() {
 	}
 	cfg := server.Config{
 		DatabaseURL: databaseURL,
-		StaticDir:   "static",
 		Addr:        ":8080",
 		Service:     "go-htmx-template",
 	}

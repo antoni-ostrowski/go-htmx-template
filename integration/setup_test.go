@@ -68,8 +68,9 @@ func seedUser(t *testing.T, username string) uuid.UUID {
 }
 
 // setup builds the whole app through app.NewHandler, exactly like main.go —
-// only the deps (test pool, discard logger, static path) differ. Register
-// new domains in app.NewHandler once; both callers follow.
+// only the deps (test pool, discard logger) differ. Static assets come from
+// the embedded FS in every environment. Register new domains in
+// app.NewHandler once; both callers follow.
 func setup(t *testing.T) (http.Handler, *db.Queries, *scs.SessionManager, uuid.UUID) {
 	t.Helper()
 	p := Pool(t, schemaFile)
@@ -84,7 +85,7 @@ func setup(t *testing.T) (http.Handler, *db.Queries, *scs.SessionManager, uuid.U
 		Logger:   slog.New(slog.DiscardHandler),
 		Tel:      &handlers.Telemetry{Tracer: otel.Tracer("test"), Meter: otel.Meter("test")},
 	}
-	return server.NewHandler(d, "../../static"), q, sessions, user
+	return server.NewHandler(d), q, sessions, user
 }
 
 // listDB reads the user's todos to prove stored state, not just HTML.
