@@ -41,11 +41,11 @@ run = "go test -race ./..."
 [tasks.test-int]
 description = "Run PostgreSQL integration tests (auto-starts and cleans up disposable container on :5433)"
 run = """
-docker rm -f go-htmx-todo-test-db >/dev/null 2>&1 || true
-docker run --rm -d --name go-htmx-todo-test-db -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=todos -p 5433:5432 postgres:16-alpine -c synchronous_commit=off
-trap 'docker rm -f go-htmx-todo-test-db >/dev/null 2>&1' EXIT
+docker rm -f go-htmx-template-test-db >/dev/null 2>&1 || true
+docker run --rm -d --name go-htmx-template-test-db -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=todos -p 5433:5432 postgres:16-alpine -c synchronous_commit=off
+trap 'docker rm -f go-htmx-template-test-db >/dev/null 2>&1' EXIT
 for i in $(seq 1 30); do
-  docker exec go-htmx-todo-test-db pg_isready -U postgres -d todos >/dev/null 2>&1 && break
+  docker exec go-htmx-template-test-db pg_isready -U postgres -d todos >/dev/null 2>&1 && break
   sleep 1
 done
 DATABASE_URL=postgres://postgres:postgres@localhost:5433/todos?sslmode=disable INTEGRATION_TESTS=1 go test ./integration -v
@@ -68,14 +68,14 @@ run = "psqldef db/schema.sql --file db/schema.sql"
 [tasks.db]
 description = "Start (or reuse) the local Postgres dev container"
 run = """
-if ! docker ps -q --filter "name=^go-htmx-todo-dev-db$" | grep -q .; then
-  docker rm -f go-htmx-todo-dev-db >/dev/null 2>&1 || true
-  docker run --rm -d --name go-htmx-todo-dev-db \
+if ! docker ps -q --filter "name=^go-htmx-template-dev-db$" | grep -q .; then
+  docker rm -f go-htmx-template-dev-db >/dev/null 2>&1 || true
+  docker run --rm -d --name go-htmx-template-dev-db \
     -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=todos \
     -p 5432:5432 postgres:16-alpine -c synchronous_commit=off
 fi
 for i in $(seq 1 30); do
-  if docker exec go-htmx-todo-dev-db pg_isready -U postgres -d todos >/dev/null 2>&1; then
+  if docker exec go-htmx-template-dev-db pg_isready -U postgres -d todos >/dev/null 2>&1; then
     echo "dev db ready on localhost:5432 (postgres/postgres, db: todos)"
     exit 0
   fi

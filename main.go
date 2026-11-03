@@ -7,8 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"go-htmx-todo/obs"
-	"go-htmx-todo/server"
+	"go-htmx-template/obs"
+	"go-htmx-template/server"
 )
 
 func main() {

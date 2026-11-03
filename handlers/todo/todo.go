@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"strings"
 
-	db "go-htmx-todo/db/sqlc"
-	"go-htmx-todo/handlers"
-	"go-htmx-todo/handlers/auth"
-	"go-htmx-todo/templates"
+	db "go-htmx-template/db/sqlc"
+	"go-htmx-template/handlers"
+	"go-htmx-template/handlers/auth"
+	"go-htmx-template/templates"
 
 	"github.com/jackc/pgx/v5"
 	"go.opentelemetry.io/otel/attribute"

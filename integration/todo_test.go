@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"testing"
 
-	db "go-htmx-todo/db/sqlc"
+	db "go-htmx-template/db/sqlc"
 
 	"github.com/google/uuid"
 )

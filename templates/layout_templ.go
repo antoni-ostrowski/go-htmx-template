@@ -8,7 +8,7 @@ package templates
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import assets "go-htmx-todo/static"
+import assets "go-htmx-template/static"
 
 // Layout is the single page shell every full page renders through:
 // doctype, head, stylesheet, htmx, and the bfcache reload guard.

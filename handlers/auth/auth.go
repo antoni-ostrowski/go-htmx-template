@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	db "go-htmx-todo/db/sqlc"
-	"go-htmx-todo/handlers"
+	db "go-htmx-template/db/sqlc"
+	"go-htmx-template/handlers"
 
 	"github.com/alexedwards/scs/pgxstore"
 	"github.com/alexedwards/scs/v2"

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"go-htmx-todo/server"
+	"go-htmx-template/server"
 )
 
 // TestSmoke_RunServes boots the real server.Run stack (OTel path, pool,

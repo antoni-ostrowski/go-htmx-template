@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"go-htmx-todo/handlers"
-	assets "go-htmx-todo/static"
+	"go-htmx-template/handlers"
+	assets "go-htmx-template/static"
 )
 
 // Register serves the embedded asset FS at GET /static/. Directory listings

@@ -13,12 +13,12 @@ import (
 	"net/http"
 	"time"
 
-	db "go-htmx-todo/db/sqlc"
-	"go-htmx-todo/handlers"
-	"go-htmx-todo/handlers/auth"
-	"go-htmx-todo/handlers/static"
-	"go-htmx-todo/handlers/todo"
-	"go-htmx-todo/obs"
+	db "go-htmx-template/db/sqlc"
+	"go-htmx-template/handlers"
+	"go-htmx-template/handlers/auth"
+	"go-htmx-template/handlers/static"
+	"go-htmx-template/handlers/todo"
+	"go-htmx-template/obs"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"

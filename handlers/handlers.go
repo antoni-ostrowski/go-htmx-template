@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"strconv"
 
-	db "go-htmx-todo/db/sqlc"
-	"go-htmx-todo/templates"
+	db "go-htmx-template/db/sqlc"
+	"go-htmx-template/templates"
 
 	"github.com/a-h/templ"
 	"github.com/alexedwards/scs/v2"
