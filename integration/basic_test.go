@@ -6,8 +6,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
-
-	"github.com/google/uuid"
+	"uuid"
 
 	db "go-htmx-template/db/sqlc"
 )

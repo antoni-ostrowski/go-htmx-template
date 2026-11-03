@@ -7,13 +7,13 @@ import (
 	"context"
 	"net/http"
 	"time"
+	"uuid"
 
 	db "go-htmx-template/db/sqlc"
 	"go-htmx-template/handlers"
 
 	"github.com/alexedwards/scs/pgxstore"
 	"github.com/alexedwards/scs/v2"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -25,7 +25,7 @@ func NewSessionManager(pool *pgxpool.Pool) *scs.SessionManager {
 	return sessions
 }
 
-func NewUserID() (uuid.UUID, error) {
+func NewUserID() uuid.UUID {
 	return uuid.NewV7()
 }
 
@@ -84,7 +84,7 @@ func WithAuth(next AuthedHandler, d handlers.Deps) http.HandlerFunc {
 // [handlers.RedirectWithCode].
 func RequireAuth(next AuthedHandler, d handlers.Deps) http.HandlerFunc {
 	return WithAuth(func(w http.ResponseWriter, r *http.Request, a AuthData) {
-		if a.UserID == uuid.Nil {
+		if a.UserID == uuid.Nil() {
 			handlers.RedirectWithCode(w, r, "/signin", http.StatusUnauthorized)
 			return
 		}
