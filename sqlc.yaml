@@ -13,4 +13,4 @@ sql:
         json_tags_case_style: "camel"
         overrides:
           - db_type: "uuid"
-            go_type: "github.com/google/uuid.UUID"
+            go_type: "uuid.UUID"

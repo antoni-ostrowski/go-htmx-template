@@ -48,11 +48,7 @@ func handleSignup(d handlers.Deps) http.HandlerFunc {
 			handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: err, Code: http.StatusInternalServerError})
 			return
 		}
-		id, err := NewUserID()
-		if err != nil {
-			handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: err, Code: http.StatusInternalServerError})
-			return
-		}
+		id := NewUserID()
 		user, err := d.Queries.CreateUser(ctx, db.CreateUserParams{
 			ID: id, Username: username, PasswordHash: hash,
 		})

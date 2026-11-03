@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
+	"uuid"
 
 	db "go-htmx-template/db/sqlc"
 	"go-htmx-template/handlers"
@@ -13,7 +14,6 @@ import (
 	"go-htmx-template/server"
 
 	"github.com/alexedwards/scs/v2"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel"
 )
@@ -52,10 +52,7 @@ func seedUser(t *testing.T, username string) uuid.UUID {
 	if err != nil {
 		t.Fatalf("hash password: %v", err)
 	}
-	id, err := auth.NewUserID()
-	if err != nil {
-		t.Fatalf("new user id: %v", err)
-	}
+	id := auth.NewUserID()
 	if username == "" {
 		username = "test-" + id.String()
 	}
