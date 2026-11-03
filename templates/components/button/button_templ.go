@@ -212,7 +212,7 @@ func Button(props ...Props) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			var templ_7745c5c3_Var7 = []any{utils.CN(baseClasses, p.variantClasses(), p.sizeClasses(), p.Class)}
+			var templ_7745c5c3_Var7 = []any{utils.CN(baseClasses, p.variantClasses(), p.sizeClasses(), p.Class, "cursor-pointer")}
 			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var7...)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err

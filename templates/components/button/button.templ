@@ -99,7 +99,7 @@ templ Button(props ...Props) {
 			if _, ok := p.Attributes["tabindex"]; !ok {
 				tabindex="0"
 			}
-			class={ utils.CN(baseClasses, p.variantClasses(), p.sizeClasses(), p.Class) }
+			class={ utils.CN(baseClasses, p.variantClasses(), p.sizeClasses(), p.Class, "cursor-pointer") }
 			if _, ok := p.Attributes["type"]; !ok && p.Type != "" {
 				type={ string(p.Type) }
 			}

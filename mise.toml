@@ -4,6 +4,7 @@ sqlc = "1.30.0"
 "aqua:a-h/templ" = "v0.3.1020"
 "aqua:air-verse/air" = "v1.67.4"
 "aqua:sqldef/sqldef/psqldef" = "3.11.20"
+"go:github.com/axadrn/shadcn-templ/v2/cmd/shadcn-templ" = "v2.0.0"
 "github:tailwindlabs/tailwindcss" = "v4.3.3"
 
 [env]
