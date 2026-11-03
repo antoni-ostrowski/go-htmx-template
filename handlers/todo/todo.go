@@ -39,8 +39,6 @@ func handlePage(d handlers.Deps) auth.AuthedHandler {
 
 func handleAdd(d handlers.Deps) auth.AuthedHandler {
 	return func(w http.ResponseWriter, r *http.Request, a auth.AuthData) {
-		handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: errors.New("test err"), Code: http.StatusUnprocessableEntity})
-		return
 		title := strings.TrimSpace(r.FormValue("title"))
 		if title == "" {
 			handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: errors.New("title cannot be empty"), Code: http.StatusUnprocessableEntity})
