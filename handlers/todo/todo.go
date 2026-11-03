@@ -30,7 +30,7 @@ func handlePage(d handlers.Deps) auth.AuthedHandler {
 		ctx := r.Context()
 		todos, err := d.Queries.ListTodos(ctx, a.UserID)
 		if err != nil {
-			handlers.WriteError(w, r, err, http.StatusInternalServerError)
+			handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: err, Code: http.StatusInternalServerError})
 			return
 		}
 		handlers.Render(w, r, templates.Page(todos, a.Username))
@@ -39,19 +39,21 @@ func handlePage(d handlers.Deps) auth.AuthedHandler {
 
 func handleAdd(d handlers.Deps) auth.AuthedHandler {
 	return func(w http.ResponseWriter, r *http.Request, a auth.AuthData) {
+		handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: errors.New("test err"), Code: http.StatusUnprocessableEntity})
+		return
 		title := strings.TrimSpace(r.FormValue("title"))
 		if title == "" {
-			handlers.WriteError(w, r, errors.New("title cannot be empty"), http.StatusUnprocessableEntity)
+			handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: errors.New("title cannot be empty"), Code: http.StatusUnprocessableEntity})
 			return
 		}
 		ctx := r.Context()
 		if _, err := d.Queries.CreateTodo(ctx, db.CreateTodoParams{UserID: a.UserID, Title: title}); err != nil {
-			handlers.WriteError(w, r, err, http.StatusInternalServerError)
+			handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: err, Code: http.StatusInternalServerError})
 			return
 		}
 		todos, err := d.Queries.ListTodos(ctx, a.UserID)
 		if err != nil {
-			handlers.WriteError(w, r, err, http.StatusInternalServerError)
+			handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: err, Code: http.StatusInternalServerError})
 			return
 		}
 		handlers.Render(w, r, templates.List(todos))
@@ -62,7 +64,7 @@ func handleToggle(d handlers.Deps) auth.AuthedHandler {
 	return func(w http.ResponseWriter, r *http.Request, a auth.AuthData) {
 		id, err := handlers.ParseID(r)
 		if err != nil {
-			handlers.WriteError(w, r, err, http.StatusBadRequest)
+			handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: err, Code: http.StatusBadRequest})
 			return
 		}
 		ctx := r.Context()
@@ -70,21 +72,21 @@ func handleToggle(d handlers.Deps) auth.AuthedHandler {
 		t, err := d.Queries.GetTodo(ctx, db.GetTodoParams{ID: id, UserID: a.UserID})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				handlers.WriteError(w, r, errors.New("todo not found"), http.StatusNotFound)
+				handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: errors.New("todo not found"), Code: http.StatusNotFound})
 				return
 			}
-			handlers.WriteError(w, r, err, http.StatusInternalServerError)
+			handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: err, Code: http.StatusInternalServerError})
 			return
 		}
 		if err := d.Queries.UpdateTodo(ctx, db.UpdateTodoParams{
 			ID: t.ID, UserID: t.UserID, Title: t.Title, Done: !t.Done,
 		}); err != nil {
-			handlers.WriteError(w, r, err, http.StatusInternalServerError)
+			handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: err, Code: http.StatusInternalServerError})
 			return
 		}
 		todos, err := d.Queries.ListTodos(ctx, a.UserID)
 		if err != nil {
-			handlers.WriteError(w, r, err, http.StatusInternalServerError)
+			handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: err, Code: http.StatusInternalServerError})
 			return
 		}
 		handlers.Render(w, r, templates.List(todos))
@@ -95,7 +97,7 @@ func handleDelete(d handlers.Deps) auth.AuthedHandler {
 	return func(w http.ResponseWriter, r *http.Request, a auth.AuthData) {
 		id, err := handlers.ParseID(r)
 		if err != nil {
-			handlers.WriteError(w, r, err, http.StatusBadRequest)
+			handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: err, Code: http.StatusBadRequest})
 			return
 		}
 		ctx := r.Context()
@@ -103,12 +105,12 @@ func handleDelete(d handlers.Deps) auth.AuthedHandler {
 		deleteCtx, deleteSpan := d.Tel.Tracer.Start(ctx, "db.delete")
 		defer deleteSpan.End()
 		if err := d.Queries.DeleteTodo(deleteCtx, db.DeleteTodoParams{ID: id, UserID: a.UserID}); err != nil {
-			handlers.WriteError(w, r, err, http.StatusInternalServerError, deleteSpan)
+			handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: err, Code: http.StatusInternalServerError, Spans: []trace.Span{deleteSpan}})
 			return
 		}
 		todos, err := d.Queries.ListTodos(ctx, a.UserID)
 		if err != nil {
-			handlers.WriteError(w, r, err, http.StatusInternalServerError)
+			handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: err, Code: http.StatusInternalServerError})
 			return
 		}
 		handlers.Render(w, r, templates.List(todos))

@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	db "go-htmx-todo/db/sqlc"
+	"go-htmx-todo/templates"
 
 	"github.com/a-h/templ"
 	"github.com/alexedwards/scs/v2"
@@ -32,26 +33,55 @@ type Telemetry struct {
 	Meter  metric.Meter
 }
 
-// WriteError logs err with request context and renders it. 4xx bodies carry
-// the message (client-caused, safe); 5xx bodies stay generic while the real
-// error goes to the log. It logs via slog.Default (set by main.go in prod)
-// and marks spans failed for 5xx (RecordError + Error status): always the
-// request span, plus any spans passed in (e.g. a child wrapping the failed
-// work) — full red, so both discovery and diagnosis work. 4xx stays green:
-// client errors are expected behavior, not failures.
-func WriteError(w http.ResponseWriter, r *http.Request, err error, code int, spans ...trace.Span) {
-	slog.Default().ErrorContext(r.Context(), "handler error",
-		"method", r.Method, "path", r.URL.Path, "status", code, "err", err)
-	if code >= 500 {
-		spans = append(spans, trace.SpanFromContext(r.Context()))
-		for _, s := range spans {
-			s.RecordError(err)
-			s.SetStatus(codes.Error, http.StatusText(code))
-		}
-		http.Error(w, http.StatusText(code), code)
-		return
+// WriteError logs err with request context and renders an HTML error
+// fragment with code. 4xx bodies carry the message (client-caused, safe);
+// 5xx bodies stay generic while the real error goes to the log. Pass a
+// custom fragment via opts.ErrComponent to override the default ErrorText
+// span. 5xx logs at Error via slog.Default (set by main.go in prod) and
+// marks spans failed for 5xx (RecordError + Error status): always the request span,
+// plus any spans passed in (e.g. a child wrapping the failed work) — full
+// red, so both discovery and diagnosis work. 4xx logs at Debug and stays
+// green on spans: client errors are expected behavior, not failures.
+type WriteErrorOpts struct {
+	Err          error
+	Code         int
+	Spans        []trace.Span
+	ErrComponent templ.Component
+}
+
+func WriteError(w http.ResponseWriter, r *http.Request, opts WriteErrorOpts) {
+	if opts.Err == nil {
+		opts.Err = errors.New("internal server error")
 	}
-	http.Error(w, err.Error(), code)
+	if opts.Code == 0 {
+		opts.Code = http.StatusInternalServerError
+	}
+	msg := opts.Err.Error()
+	if opts.Code >= 500 {
+		spans := append(opts.Spans, trace.SpanFromContext(r.Context()))
+		for _, s := range spans {
+			s.RecordError(opts.Err)
+			s.SetStatus(codes.Error, http.StatusText(opts.Code))
+		}
+		msg = http.StatusText(opts.Code)
+	}
+	if opts.ErrComponent == nil {
+		opts.ErrComponent = templates.ErrorText(msg)
+	}
+
+	if opts.Code >= 500 {
+		slog.Default().ErrorContext(r.Context(), "handler error",
+			"method", r.Method, "path", r.URL.Path, "status", opts.Code, "err", opts.Err)
+	} else {
+		slog.Default().DebugContext(r.Context(), "handler error",
+			"method", r.Method, "path", r.URL.Path, "status", opts.Code, "err", opts.Err)
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(opts.Code)
+	if err := opts.ErrComponent.Render(r.Context(), w); err != nil {
+		slog.Default().ErrorContext(r.Context(), "error fragment render failed", "err", err)
+	}
 }
 
 // Route registers pattern on mux and renames the otelhttp server span to the
@@ -87,7 +117,7 @@ func RenderWithCode(w http.ResponseWriter, r *http.Request, page templ.Component
 func render(w http.ResponseWriter, r *http.Request, page templ.Component, code int) {
 	w.WriteHeader(code)
 	if err := page.Render(r.Context(), w); err != nil {
-		WriteError(w, r, err, http.StatusInternalServerError)
+		WriteError(w, r, WriteErrorOpts{Err: err, Code: http.StatusInternalServerError})
 	}
 }
 

@@ -45,12 +45,12 @@ func handleSignup(d handlers.Deps) http.HandlerFunc {
 		}
 		hash, err := HashPassword(password)
 		if err != nil {
-			handlers.WriteError(w, r, err, http.StatusInternalServerError)
+			handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: err, Code: http.StatusInternalServerError})
 			return
 		}
 		id, err := NewUserID()
 		if err != nil {
-			handlers.WriteError(w, r, err, http.StatusInternalServerError)
+			handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: err, Code: http.StatusInternalServerError})
 			return
 		}
 		user, err := d.Queries.CreateUser(ctx, db.CreateUserParams{
@@ -62,11 +62,11 @@ func handleSignup(d handlers.Deps) http.HandlerFunc {
 				handlers.RenderWithCode(w, r, templates.Signup("username is taken"), http.StatusConflict)
 				return
 			}
-			handlers.WriteError(w, r, err, http.StatusInternalServerError)
+			handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: err, Code: http.StatusInternalServerError})
 			return
 		}
 		if err := login(d, r, user); err != nil {
-			handlers.WriteError(w, r, err, http.StatusInternalServerError)
+			handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: err, Code: http.StatusInternalServerError})
 			return
 		}
 		w.Header().Set("Clear-Site-Data", `"cache"`)
@@ -89,7 +89,7 @@ func handleSignin(d handlers.Deps) http.HandlerFunc {
 				handlers.RenderWithCode(w, r, templates.Signin("invalid username or password"), http.StatusUnauthorized)
 				return
 			}
-			handlers.WriteError(w, r, err, http.StatusInternalServerError)
+			handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: err, Code: http.StatusInternalServerError})
 			return
 		}
 		if !CheckPassword(user.PasswordHash, r.FormValue("password")) {
@@ -97,7 +97,7 @@ func handleSignin(d handlers.Deps) http.HandlerFunc {
 			return
 		}
 		if err := login(d, r, user); err != nil {
-			handlers.WriteError(w, r, err, http.StatusInternalServerError)
+			handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: err, Code: http.StatusInternalServerError})
 			return
 		}
 		w.Header().Set("Clear-Site-Data", `"cache"`)
@@ -108,7 +108,7 @@ func handleSignin(d handlers.Deps) http.HandlerFunc {
 func handleSignout(d handlers.Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := d.Sessions.Destroy(r.Context()); err != nil {
-			handlers.WriteError(w, r, err, http.StatusInternalServerError)
+			handlers.WriteError(w, r, handlers.WriteErrorOpts{Err: err, Code: http.StatusInternalServerError})
 			return
 		}
 		w.Header().Set("Clear-Site-Data", `"cache"`)

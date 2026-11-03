@@ -16,10 +16,27 @@ templ Page(todos []db.Todo, username string) {
 						<button type="submit" class="underline hover:text-neutral-800">sign out</button>
 					</form>
 				</div>
-				<form hx-post="/todos" hx-target="#todo-list" hx-swap="innerHTML" hx-on::after-request="if(event.detail.successful) this.reset()" class="mt-4 flex gap-2">
-					<input name="title" placeholder="What needs to be done?" required autocomplete="off" class="flex-1 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"/>
-					<button type="submit" class="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700">Add</button>
+				<form
+					hx-post="/todos"
+					hx-target="#todo-list"
+					hx-status:5xx="target:#form-err"
+					hx-status:4xx="target:#form-err"
+					hx-swap="outerHTML"
+					class="mt-4 flex gap-2"
+				>
+					<input
+						name="title"
+						placeholder="What needs to be done?"
+						required
+						autocomplete="off"
+						class="flex-1 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
+					/>
+					<button
+						type="submit"
+						class="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700"
+					>Add</button>
 				</form>
+				<span id="form-err"></span>
 			} else {
 				<p class="mt-2 text-sm text-neutral-500"><a href="/signin" class="underline">sign in</a> or <a href="/signup" class="underline">sign up</a> to manage todos</p>
 			}

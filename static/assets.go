@@ -10,7 +10,7 @@ import (
 	"encoding/hex"
 )
 
-// FS holds css/app.css and js/htmx.min.js, served under /static/.
+// FS holds css/app.css and js/htmax.min.js, served under /static/.
 // Paths inside FS are relative to this directory, e.g. "css/app.css".
 //
 //go:embed css/app.css js
@@ -22,7 +22,7 @@ var FS embed.FS
 // entirely. Recomputed at startup from the embedded bytes, so no build step.
 var Version = func() string {
 	h := sha256.New()
-	for _, f := range []string{"css/app.css", "js/htmx.min.js"} {
+	for _, f := range []string{"css/app.css", "js/htmax.min.js"} {
 		b, err := FS.ReadFile(f)
 		if err != nil {
 			panic("assets: unreadable embedded file " + f)
