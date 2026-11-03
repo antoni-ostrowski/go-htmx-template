@@ -1,6 +1,6 @@
-# Go + HTMX + templ reference
+# Go + HTMX + templ template
 
-Minimal template for Server-rendered Go/HTMX web apps. Uses `net/http`, `templ`, `sqlc`, PostgreSQL, `scs` sessions, OpenTelemetry.
+Minimal template for Server-rendered Go/HTMX/Templ web apps. Uses `net/http`, `templ`, `sqlc`, PostgreSQL, `scs` sessions, OpenTelemetry. Uses [mise](https://mise.jdx.dev/) for tooling.
 
 ## Run
 
@@ -12,16 +12,21 @@ mise run dev           # hot reload (starts dev db, applies schema)
 
 `DATABASE_URL` overrides the default.
 
-## Architecture
+## Project structure
 
 ```text
-main.go      env + signals, then server.Run
-server       wiring: mux + middleware + http.Server
-handlers     one package per domain, sharing a Deps bag
-sqlc         generated DB code from SQL
+main.go       env + signals, then server.Run
+server/       mux + middleware + http.Server wiring
+handlers/     one package per domain (todo/, auth/, static/), sharing Deps
+db/           schema.sql + queries.sql -> sqlc/ generated code
+templates/    layout + pages (todos, auth) + components/ (shadcn-templ)
+static/       css input, vendored htmx, embedded assets
+obs/          OTel setup + log handler
+integration/  HTTP + DB tests against real Postgres
+utils/        shadcn-templ helpers (cn, etc.)
 ```
 
-Each domain registers its own routes. Handlers call `*db.Queries` directly, templates take rows directly.
+New domain = new subpackage with `Register(mux, Deps)`, called from `server.NewHandler`. Handlers call `*db.Queries` directly, templates take rows directly.
 
 ## Auth
 
@@ -40,9 +45,13 @@ APP_ENV=production             # INFO+ export; otherwise DEBUG+
 
 `db/schema.sql` is the source of truth for both sqldef and sqlc. Edit it, then `mise run generate` → `db-plan` → `db-apply`.
 
-## Styling
+## Deployment
 
-Tailwind via standalone CLI, no Node. `mise run dev` rebuilds CSS on change, `mise run build` minifies.
+Single binary + Postgres. `static/` is compiled in via `embed.FS`, so the server never touches disk at runtime.
+
+Tailwind via standalone CLI, no Node. Dev CSS is unminified (`mise run css-dev`, watched by air); prod CSS is minified (`mise run css-prod`, runs as part of `mise run build` → `tmp/app`).
+
+Cache-busting is a content hash: `assets.Version` hashes the embedded `css/app.css` + `js/` at startup, templates emit `/static/...?v=<hash>`, and `?v=` responses carry `Cache-Control: immutable` (bare URLs get a short cache). New content → new URL → browsers refetch; unchanged → no re-request.
 
 ## Testing
 
@@ -51,21 +60,6 @@ Integration only: HTTP requests against real PostgreSQL, asserting response + DB
 ```bash
 mise run test-int   # disposable Postgres, full suite
 ```
-
-## Layout
-
-```text
-main.go
-server/         Run + NewServer + NewHandler
-db/             schema.sql, queries.sql, sqlc/
-handlers/       handlers.go + todo/ + auth/ + static/
-obs/            OTel setup + log handler
-integration/    HTTP + DB tests
-static/                  css input, vendored htmx
-templates/               layout, todos, auth
-```
-
-New domain = new subpackage with `Register(mux, Deps)`, called from `server.NewHandler`.
 
 ## Tasks
 
