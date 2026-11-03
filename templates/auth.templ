@@ -1,5 +1,10 @@
 package templates
 
+import (
+	btn "go-htmx-template/templates/components/button"
+	inp "go-htmx-template/templates/components/input"
+)
+
 // Signup is FULL page. POST /signup re-renders it with errMsg on failure.
 templ Signup(errMsg string) {
 	@Layout("sign up") {
@@ -9,11 +14,29 @@ templ Signup(errMsg string) {
 				<p class="mt-4 text-sm text-red-600">{ errMsg }</p>
 			}
 			<form method="post" action="/signup" class="mt-4 flex flex-col gap-2">
-				<input name="username" placeholder="username" required autocomplete="username" class="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"/>
-				<input name="password" type="password" placeholder="password (min 8 characters)" required autocomplete="new-password" class="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"/>
-				<button type="submit" class="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700">Sign up</button>
+				@inp.Input(inp.Props{
+					Name: "username",
+					Placeholder: "username",
+					Required: true,
+					Attributes: templ.Attributes{"autocomplete": "username"},
+				})
+				@inp.Input(inp.Props{
+					Name: "password",
+					Type: "password",
+					Placeholder: "password (min 8 characters)",
+					Required: true,
+					Attributes: templ.Attributes{"autocomplete": "new-password"},
+				})
+				@btn.Button(btn.Props{Type: btn.TypeSubmit}) {
+					Sign up
+				}
 			</form>
-			<p class="mt-4 text-sm text-neutral-500">already have an account? <a href="/signin" class="underline">sign in</a></p>
+			<p class="mt-4 text-sm text-neutral-500">
+				already have an account?
+				@btn.Button(btn.Props{Href: "/signin", Variant: btn.VariantLink, Size: btn.SizeSm, Class: "px-1 text-sm"}) {
+					sign in
+				}
+			</p>
 		</main>
 	}
 }
@@ -27,11 +50,29 @@ templ Signin(errMsg string) {
 				<p class="mt-4 text-sm text-red-600">{ errMsg }</p>
 			}
 			<form method="post" action="/signin" class="mt-4 flex flex-col gap-2">
-				<input name="username" placeholder="username" required autocomplete="username" class="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"/>
-				<input name="password" type="password" placeholder="password" required autocomplete="current-password" class="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"/>
-				<button type="submit" class="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700">Sign in</button>
+				@inp.Input(inp.Props{
+					Name: "username",
+					Placeholder: "username",
+					Required: true,
+					Attributes: templ.Attributes{"autocomplete": "username"},
+				})
+				@inp.Input(inp.Props{
+					Name: "password",
+					Type: "password",
+					Placeholder: "password",
+					Required: true,
+					Attributes: templ.Attributes{"autocomplete": "current-password"},
+				})
+				@btn.Button(btn.Props{Type: btn.TypeSubmit}) {
+					Sign in
+				}
 			</form>
-			<p class="mt-4 text-sm text-neutral-500">no account yet? <a href="/signup" class="underline">sign up</a></p>
+			<p class="mt-4 text-sm text-neutral-500">
+				no account yet?
+				@btn.Button(btn.Props{Href: "/signup", Variant: btn.VariantLink, Size: btn.SizeSm, Class: "px-1 text-sm"}) {
+					sign up
+				}
+			</p>
 		</main>
 	}
 }

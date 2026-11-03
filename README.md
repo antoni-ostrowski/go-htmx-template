@@ -1,42 +1,32 @@
-# Go + HTMX + templ reference
+# Go + HTMX + templ template
 
-Server-rendered HTMX todo app. `net/http`, `templ`, `sqlc`, PostgreSQL, `scs` sessions, OpenTelemetry. Minimal template.
+Minimal template for Server-rendered Go/HTMX/Templ web apps. Uses `net/http`, `templ`, `sqlc`, PostgreSQL, `scs` sessions, OpenTelemetry. Uses [mise](https://mise.jdx.dev/) for tooling.
 
 ## Run
 
 Needs PostgreSQL. Default: `postgres://postgres:postgres@localhost:5432/todos?sslmode=disable`
 
 ```bash
-mise run generate      # sqlc + templ codegen
-mise run db-apply      # apply schema (sqldef, no migration files)
 mise run dev           # hot reload (starts dev db, applies schema)
 ```
 
 `DATABASE_URL` overrides the default.
 
-## Architecture
+## Project structure
 
 ```text
-main.go      env + signals, then server.Run
-server       wiring: mux + middleware + http.Server
-handlers     one package per domain, sharing a Deps bag
-sqlc         generated DB code from SQL
+main.go       env + signals, then server.Run
+server/       mux + middleware + http.Server wiring
+handlers/     one package per domain (todo/, auth/, static/), sharing Deps
+db/           schema.sql + queries.sql -> sqlc/ generated code
+templates/    layout + pages (todos, auth) + components/ (shadcn-templ)
+static/       css input, vendored htmx, embedded assets
+obs/          OTel setup + log handler
+integration/  HTTP + DB tests against real Postgres
+utils/        shadcn-templ helpers (cn, etc.)
 ```
 
-Each domain registers its own routes. Handlers call `*db.Queries` directly, templates take rows directly.
-
-## Routes
-
-```text
-GET /                     full page
-POST /todos               add
-POST /todos/{id}/toggle   toggle
-DELETE /todos/{id}        delete
-GET+POST /signup|/signin  auth forms
-POST /signout             log out
-```
-
-Page is public, mutations require login. Anonymous htmx requests get an `HX-Redirect` to sign-in.
+New domain = new subpackage with `Register(mux, Deps)`, called from `server.NewHandler`. Handlers call `*db.Queries` directly, templates take rows directly.
 
 ## Auth
 
@@ -53,11 +43,15 @@ APP_ENV=production             # INFO+ export; otherwise DEBUG+
 
 ## Database
 
-`internal/db/schema.sql` is the source of truth for both sqldef and sqlc. Edit it, then `mise run generate` → `db-plan` → `db-apply`.
+`db/schema.sql` is the source of truth for both sqldef and sqlc. Edit it, then `mise run generate` → `db-plan` → `db-apply`.
 
-## Styling
+## Deployment
 
-Tailwind via standalone CLI, no Node. `mise run dev` rebuilds CSS on change, `mise run build` minifies.
+Single binary + Postgres. `static/` is compiled in via `embed.FS`, so the server never touches disk at runtime.
+
+Tailwind via standalone CLI, no Node. Dev CSS is unminified (`mise run css-dev`, watched by air); prod CSS is minified (`mise run css-prod`, runs as part of `mise run build` → `tmp/app`).
+
+Cache-busting is a content hash: `assets.Version` hashes the embedded `css/app.css` + `js/` at startup, templates emit `/static/...?v=<hash>`, and `?v=` responses carry `Cache-Control: immutable` (bare URLs get a short cache). New content → new URL → browsers refetch; unchanged → no re-request.
 
 ## Testing
 
@@ -67,25 +61,10 @@ Integration only: HTTP requests against real PostgreSQL, asserting response + DB
 mise run test-int   # disposable Postgres, full suite
 ```
 
-## Layout
-
-```text
-main.go
-internal/server/         Run + NewServer + NewHandler
-internal/db/             schema.sql, queries.sql, sqlc/
-internal/handlers/       handlers.go + todo/ + auth/ + static/
-internal/obs/            OTel setup + log handler
-internal/integration/    HTTP + DB tests
-static/                  css input, vendored htmx
-templates/               layout, todos, auth
-```
-
-New domain = new subpackage with `Register(mux, Deps)`, called from `server.NewHandler`.
-
 ## Tasks
 
 ```bash
-mise run generate | css | dev | build
+mise run generate | css-dev | css-prod | dev | build
 mise run db | db-plan | db-apply
-mise run test | test-race | test-int | check
+mise run test | test-race | test-int | lint | check
 ```
