@@ -53,6 +53,8 @@ Tailwind via standalone CLI, no Node. Dev CSS is unminified (`mise run css-dev`,
 
 Cache-busting is a content hash: `assets.Version` hashes the embedded `css/app.css` + `js/` at startup, templates emit `/static/...?v=<hash>`, and `?v=` responses carry `Cache-Control: immutable` (bare URLs get a short cache). New content → new URL → browsers refetch; unchanged → no re-request.
 
+Static responses are precompressed once at startup (raw + gzip BestCompression, `handlers/static/static.go`), so there is no per-request CPU. Clients sending `Accept-Encoding: gzip` get `Content-Encoding: gzip` (~119KB resources → ~42KB transferred for HTML + `htmax.min.js` + `app.css`); others get raw. `ETag` equals the content hash and `If-None-Match` → `304`, with `Vary: Accept-Encoding`.
+
 ## Testing
 
 Integration only: HTTP requests against real PostgreSQL, asserting response + DB state.
