@@ -13,8 +13,9 @@ import (
 	"path"
 	"strings"
 
-	"go-htmx-template/handlers"
 	assets "go-htmx-template/static"
+
+	"github.com/pocketbase/pocketbase/core"
 )
 
 type cachedAsset struct {
@@ -71,41 +72,39 @@ func compressible(ct string) bool {
 		strings.Contains(ct, "svg")
 }
 
-// Register serves the embedded asset cache at GET /static/. Directory listings
-// are 404; path traversal is rejected. Clients signalling gzip via
-// Accept-Encoding get the precompressed bytes with Content-Encoding: gzip,
-// others get raw. ETag matches assets.Version, so If-None-Match → 304.
-func Register(mux *http.ServeMux) {
-	handlers.Route(mux, "GET /static/", http.HandlerFunc(
-		func(w http.ResponseWriter, r *http.Request) {
-			p := strings.TrimPrefix(r.URL.Path, "/static/")
-			if p == "" || strings.HasSuffix(r.URL.Path, "/") || strings.Contains(p, "..") {
-				http.NotFound(w, r)
-				return
-			}
-			p = path.Clean(p)
-			a, ok := cache[p]
-			if !ok {
-				http.NotFound(w, r)
-				return
-			}
-			if r.URL.Query().Has("v") {
-				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-			} else {
-				w.Header().Set("Cache-Control", "public, max-age=300")
-			}
-			w.Header().Set("Content-Type", a.contentTyp)
-			w.Header().Set("ETag", a.etag)
-			w.Header().Set("Vary", "Accept-Encoding")
-			if inm := r.Header.Get("If-None-Match"); inm != "" && inm == a.etag {
-				w.WriteHeader(http.StatusNotModified)
-				return
-			}
-			if a.gz != nil && strings.Contains(strings.ToLower(r.Header.Get("Accept-Encoding")), "gzip") {
-				w.Header().Set("Content-Encoding", "gzip")
-				w.Write(a.gz)
-				return
-			}
-			w.Write(a.raw)
-		}))
+// Register serves the embedded asset cache at GET /static/{path...}.
+// Directory listings are 404; path traversal is rejected. Clients signalling
+// gzip via Accept-Encoding get the precompressed bytes with
+// Content-Encoding: gzip, others get raw. ETag matches assets.Version, so
+// If-None-Match → 304, with Vary: Accept-Encoding.
+func Register(se *core.ServeEvent) {
+	se.Router.GET("/static/{path...}", func(e *core.RequestEvent) error {
+		p := e.Request.PathValue("path")
+		if p == "" || strings.HasSuffix(p, "/") || strings.Contains(p, "..") {
+			return e.NotFoundError("not found", nil)
+		}
+		p = path.Clean(p)
+		a, ok := cache[p]
+		if !ok {
+			return e.NotFoundError("not found", nil)
+		}
+		if e.Request.URL.Query().Has("v") {
+			e.Response.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			e.Response.Header().Set("Cache-Control", "public, max-age=300")
+		}
+		e.Response.Header().Set("Content-Type", a.contentTyp)
+		e.Response.Header().Set("ETag", a.etag)
+		e.Response.Header().Set("Vary", "Accept-Encoding")
+		if inm := e.Request.Header.Get("If-None-Match"); inm != "" && inm == a.etag {
+			return e.NoContent(http.StatusNotModified)
+		}
+		if a.gz != nil && strings.Contains(strings.ToLower(e.Request.Header.Get("Accept-Encoding")), "gzip") {
+			e.Response.Header().Set("Content-Encoding", "gzip")
+			_, _ = e.Response.Write(a.gz)
+			return nil
+		}
+		_, _ = e.Response.Write(a.raw)
+		return nil
+	})
 }

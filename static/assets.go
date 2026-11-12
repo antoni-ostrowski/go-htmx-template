@@ -22,7 +22,7 @@ var FS embed.FS
 // entirely. Recomputed at startup from the embedded bytes, so no build step.
 var Version = func() string {
 	h := sha256.New()
-	for _, f := range []string{"css/app.css", "js/htmax.min.js"} {
+	for _, f := range []string{"css/app.css", "js/htmax.min.js", "js/realtime.js"} {
 		b, err := FS.ReadFile(f)
 		if err != nil {
 			panic("assets: unreadable embedded file " + f)

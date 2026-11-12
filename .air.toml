@@ -4,12 +4,14 @@ tmp_dir = "tmp"
 [build]
 bin = "./tmp/main"
 cmd = "go build -o ./tmp/main ."
-exclude_dir = ["tmp"]
+args_bin = ["serve", "--http=127.0.0.1:8080", "--dir=./pb_data"]
+exclude_dir = ["tmp", "pb_data"]
 exclude_regex = ["_test.go", "_templ.go$", "app.css$"]
 include_dir = []
 include_ext = ["go", "templ", "css"]
 log = "tmp/air-errors.log"
 # Dev CSS is unminified for readable output (`mise run css-dev`); prod
 # `mise run build` uses `css-prod` (minified). templ runs first so generated
-# Go is always in sync before the build.
+# Go is always in sync before the build. pb_data is excluded so SQLite
+# writes don't trigger rebuilds.
 pre_cmd = ["templ generate", "mise run css-dev"]

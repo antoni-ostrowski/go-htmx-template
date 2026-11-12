@@ -75,10 +75,11 @@ func Signup(errMsg string) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			templ_7745c5c3_Err = inp.Input(inp.Props{
-				Name:        "username",
-				Placeholder: "username",
+				Name:        "email",
+				Type:        "email",
+				Placeholder: "email",
 				Required:    true,
-				Attributes:  templ.Attributes{"autocomplete": "username"},
+				Attributes:  templ.Attributes{"autocomplete": "email"},
 			}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -201,7 +202,7 @@ func Signin(errMsg string) templ.Component {
 				var templ_7745c5c3_Var8 string
 				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(errMsg)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/auth.templ`, Line: 50, Col: 49}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/auth.templ`, Line: 51, Col: 49}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 				if templ_7745c5c3_Err != nil {
@@ -217,10 +218,11 @@ func Signin(errMsg string) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			templ_7745c5c3_Err = inp.Input(inp.Props{
-				Name:        "username",
-				Placeholder: "username",
+				Name:        "email",
+				Type:        "email",
+				Placeholder: "email",
 				Required:    true,
-				Attributes:  templ.Attributes{"autocomplete": "username"},
+				Attributes:  templ.Attributes{"autocomplete": "email"},
 			}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
