@@ -7,7 +7,7 @@ handlers. OpenTelemetry traces + logs via OTLP/HTTP, stderr JSON always on.
 Uses [mise](https://mise.jdx.dev/) for tooling.
 
 > **Classic variant:** the pre-PocketBase setup (PostgreSQL + `sqlc` +
-> `scs` sessions, no magic) lives on the
+> `scs` sessions) lives on the
 > [`pg-classic`](https://github.com/antoni-ostrowski/go-web-ref/tree/pg-classic)
 > branch. Pick it when you need sustained heavy writes, horizontal
 > scale-out, multi-TB data, or Postgres extensions — otherwise this branch
@@ -62,6 +62,18 @@ collection API rules: `owner = @request.auth.id`). `static/js/realtime.js`
 subscribes to `todos/*` with the cookie token and fires
 `pb-todos-changed`, which refetches the `#todo-list` fragment via
 `GET /todos-fragment`. No Redis, no extra process.
+
+## UI (htmx)
+
+All client interactivity is htmx, vendored as `static/js/htmax.min.js`
+(htmx v4 + htmax build). Fragments over XHR (`hx-post`, `hx-delete`,
+`hx-target`, `hx-swap`), full pages on plain navigations, `HX-Redirect`
+for post-mutation bounces. No build step, no Node — the file is compiled
+into the binary and cache-busted like the CSS.
+
+For the small scripting that remains (confirm dialogs, toggling bits of
+DOM), use htmx's own `hx-on:` inline handlers instead of pulling in
+Alpine.js — one less dependency for the same job.
 
 ## Observability
 

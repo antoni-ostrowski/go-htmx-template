@@ -32,11 +32,11 @@ templ Page(todos []Todo, email string) {
 					class="mt-4 flex gap-2"
 				>
 					@inp.Input(inp.Props{
-						Name: "title",
+						Name:        "title",
 						Placeholder: "What needs to be done?",
-						Required: true,
-						Class: "flex-1 bg-white",
-						Attributes: templ.Attributes{"autocomplete": "off"},
+						Required:    true,
+						Class:       "flex-1 bg-white",
+						Attributes:  templ.Attributes{"autocomplete": "off"},
 					})
 					@btn.Button(btn.Props{Type: btn.TypeSubmit}) {
 						Add
@@ -64,7 +64,14 @@ templ Page(todos []Todo, email string) {
 // List is FRAGMENT. Mutation handlers return this, htmx swaps #todo-list.
 // Realtime events refetch it via GET /todos-fragment.
 templ List(todos []Todo) {
-	<ul id="todo-list" hx-get="/todos-fragment" hx-trigger="pb-todos-changed from:body" hx-swap="outerHTML" class="mt-4 divide-y divide-neutral-200 rounded-md border border-neutral-200 bg-white">
+	<ul
+		id="todo-list"
+		hx-get="/todos-fragment"
+		hx-trigger="pb-todos-changed from:body"
+		hx-swap="outerHTML"
+		data-realtime-topic="todos/*"
+		class="mt-4 divide-y divide-neutral-200 rounded-md border border-neutral-200 bg-white"
+	>
 		for _, t := range todos {
 			@Item(t)
 		}
@@ -78,11 +85,11 @@ templ Item(t Todo) {
 	<li class="flex items-center gap-2 px-3 py-1.5">
 		@btn.Button(btn.Props{
 			Variant: btn.VariantGhost,
-			Class: "flex-1 justify-start font-normal",
+			Class:   "flex-1 justify-start font-normal",
 			Attributes: templ.Attributes{
-				"hx-post": fmt.Sprintf("/todos/%s/toggle", t.ID),
+				"hx-post":   fmt.Sprintf("/todos/%s/toggle", t.ID),
 				"hx-target": "#todo-list",
-				"hx-swap": "outerHTML",
+				"hx-swap":   "outerHTML",
 			},
 		}) {
 			if t.Done {
@@ -95,12 +102,12 @@ templ Item(t Todo) {
 		}
 		@btn.Button(btn.Props{
 			Variant: btn.VariantGhost,
-			Size: btn.SizeIconSm,
-			Class: "text-red-600 hover:text-red-700",
+			Size:    btn.SizeIconSm,
+			Class:   "text-red-600 hover:text-red-700",
 			Attributes: templ.Attributes{
-				"hx-delete": fmt.Sprintf("/todos/%s", t.ID),
-				"hx-target": "#todo-list",
-				"hx-swap": "outerHTML",
+				"hx-delete":  fmt.Sprintf("/todos/%s", t.ID),
+				"hx-target":  "#todo-list",
+				"hx-swap":    "outerHTML",
 				"aria-label": fmt.Sprintf("delete %s", t.Title),
 			},
 		}) {
