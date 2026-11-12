@@ -1,93 +1,78 @@
-// Package auth holds sign-up, sign-in, and sign-out plus the password
-// hashing helpers. Sessions carry user_id and username; handlers.Deps
-// stays untouched.
+// Package auth holds sign-up, sign-in, and sign-out plus the identity
+// middleware. Identity is the PB auth record itself: e.Auth when the request
+// carries an Authorization header (PB's own loader, also used by realtime
+// and the API), else the pb_auth cookie set by login. Sessions carry
+// nothing server-side — the JWT is stateless.
 package auth
 
 import (
-	"context"
 	"net/http"
-	"time"
-	"uuid"
 
-	db "go-htmx-template/db/sqlc"
 	"go-htmx-template/handlers"
 
-	"github.com/alexedwards/scs/pgxstore"
-	"github.com/alexedwards/scs/v2"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/pocketbase/pocketbase/core"
 )
 
-func NewSessionManager(pool *pgxpool.Pool) *scs.SessionManager {
-	sessions := scs.New()
-	sessions.Store = pgxstore.New(pool)
-	sessions.Lifetime = 7 * 24 * 60 * time.Minute
-	return sessions
-}
+// CookieName is the readable (non-HttpOnly) cookie holding the PB auth
+// token. Readable so realtime.js can reuse it for /api/realtime
+// subscriptions. XSS could steal it like any bearer token — set HttpOnly +
+// inline the token into pages instead if that worries you.
+const CookieName = "pb_auth"
 
-func NewUserID() uuid.UUID {
-	return uuid.NewV7()
-}
+const cookieMaxAge = 7 * 24 * 60 * 60
 
-// HashPassword bcrypt-hashes password for storage. Never store plaintext.
-func HashPassword(password string) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+// login issues a fresh auth token for record and stores it in the cookie.
+func login(e *core.RequestEvent, record *core.Record) error {
+	token, err := record.NewAuthToken()
 	if err != nil {
-		return "", err
-	}
-	return string(hash), nil
-}
-
-// CheckPassword reports whether password matches the stored hash.
-func CheckPassword(hash, password string) bool {
-	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
-}
-
-// login stores the user in a fresh session. RenewToken first so a login
-// never inherits a pre-login session (fixation).
-func login(d handlers.Deps, r *http.Request, user db.User) error {
-	ctx := r.Context()
-	if err := d.Sessions.RenewToken(ctx); err != nil {
 		return err
 	}
-	d.Sessions.Put(ctx, "user_id", user.ID.String())
-	d.Sessions.Put(ctx, "username", user.Username)
+	http.SetCookie(e.Response, &http.Cookie{
+		Name:     CookieName,
+		Value:    token,
+		Path:     "/",
+		MaxAge:   cookieMaxAge,
+		SameSite: http.SameSiteLaxMode,
+	})
 	return nil
 }
 
-type AuthData struct {
-	UserID   uuid.UUID
-	Username string
+// logout clears the auth cookie. PB tokens are stateless, so there is no
+// server-side session to destroy — forgetting the token is the logout.
+func logout(e *core.RequestEvent) {
+	http.SetCookie(e.Response, &http.Cookie{
+		Name:     CookieName,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		SameSite: http.SameSiteLaxMode,
+	})
 }
 
-func (a AuthData) GetUserData(ctx context.Context, d handlers.Deps) (db.User, error) {
-	return d.Queries.GetUserById(ctx, a.UserID)
-}
-
-type AuthedHandler func(w http.ResponseWriter, r *http.Request, a AuthData)
-
-// WithAuth supplies request identity to next and nothing else. Anonymous
-// requests get zero AuthData, never a redirect. This is the single place
-// that reads the session for identity.
-func WithAuth(next AuthedHandler, d handlers.Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		var a AuthData
-		if id, err := uuid.Parse(d.Sessions.GetString(ctx, "user_id")); err == nil {
-			a = AuthData{UserID: id, Username: d.Sessions.GetString(ctx, "username")}
+// WithAuth ensures e.Auth is populated, then calls next. PB's own loader
+// already fills e.Auth from the Authorization header (API + realtime
+// clients); this adds the pb_auth cookie fallback for browser page/form
+// posts. Guests keep nil e.Auth, never a redirect — that is RequireAuth.
+func WithAuth(next func(e *core.RequestEvent) error) func(e *core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		if e.Auth == nil {
+			if c, err := e.Request.Cookie(CookieName); err == nil && c.Value != "" {
+				if rec, err := e.App.FindAuthRecordByToken(c.Value, core.TokenTypeAuth); err == nil {
+					e.Auth = rec
+				}
+			}
 		}
-		next(w, r, a)
+		return next(e)
 	}
 }
 
 // RequireAuth enforces identity: anonymous requests go to /signin via
-// [handlers.RedirectWithCode].
-func RequireAuth(next AuthedHandler, d handlers.Deps) http.HandlerFunc {
-	return WithAuth(func(w http.ResponseWriter, r *http.Request, a AuthData) {
-		if a.UserID == uuid.Nil() {
-			handlers.RedirectWithCode(w, r, "/signin", http.StatusUnauthorized)
-			return
+// [handlers.RedirectWithCode]. Handlers behind it can use e.Auth directly.
+func RequireAuth(next func(e *core.RequestEvent) error) func(e *core.RequestEvent) error {
+	return WithAuth(func(e *core.RequestEvent) error {
+		if e.Auth == nil {
+			return handlers.RedirectWithCode(e, "/signin", http.StatusUnauthorized)
 		}
-		next(w, r, a)
-	}, d)
+		return next(e)
+	})
 }

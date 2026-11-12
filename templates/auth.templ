@@ -15,10 +15,11 @@ templ Signup(errMsg string) {
 			}
 			<form method="post" action="/signup" class="mt-4 flex flex-col gap-2">
 				@inp.Input(inp.Props{
-					Name: "username",
-					Placeholder: "username",
+					Name: "email",
+					Type: "email",
+					Placeholder: "email",
 					Required: true,
-					Attributes: templ.Attributes{"autocomplete": "username"},
+					Attributes: templ.Attributes{"autocomplete": "email"},
 				})
 				@inp.Input(inp.Props{
 					Name: "password",
@@ -51,10 +52,11 @@ templ Signin(errMsg string) {
 			}
 			<form method="post" action="/signin" class="mt-4 flex flex-col gap-2">
 				@inp.Input(inp.Props{
-					Name: "username",
-					Placeholder: "username",
+					Name: "email",
+					Type: "email",
+					Placeholder: "email",
 					Required: true,
-					Attributes: templ.Attributes{"autocomplete": "username"},
+					Attributes: templ.Attributes{"autocomplete": "email"},
 				})
 				@inp.Input(inp.Props{
 					Name: "password",

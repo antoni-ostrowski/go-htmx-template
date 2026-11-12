@@ -1,124 +1,140 @@
-// Package server composes the whole HTTP serving stack: every domain
-// registered on one mux behind session middleware and the otelhttp server
-// span, plus the configured http.Server. main.go and the integration suite
-// share it so route wiring can't drift; only the deps (pool, logger,
-// static dir) differ per environment.
+// Package server composes the whole HTTP serving stack on top of
+// PocketBase: OTel tracing middleware, the PB log forwarder, and every
+// domain registered on the PB router inside OnServe. main.go builds the PB
+// app and calls BindAppHooks; the integration suite does the same on a test
+// app, so route wiring can't drift.
 package server
 
 import (
-	"context"
-	"errors"
-	"fmt"
 	"log/slog"
-	"net/http"
-	"time"
+	"os"
+	"strings"
 
-	db "go-htmx-template/db/sqlc"
 	"go-htmx-template/handlers"
 	"go-htmx-template/handlers/auth"
 	"go-htmx-template/handlers/static"
 	"go-htmx-template/handlers/todo"
 	"go-htmx-template/obs"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"github.com/pocketbase/dbx"
+	"github.com/pocketbase/pocketbase/core"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
 )
 
-// Config carries everything Run needs that differs per environment.
-// main.go fills it from env; tests fill it with test values.
-type Config struct {
-	DatabaseURL string
-	Addr        string
-	Service     string
+// DefaultDeps builds the process-wide deps: the default slog logger (fanned
+// out to stderr + OTLP by main.go) and noop-safe OTel instruments.
+func DefaultDeps(service string) handlers.Deps {
+	return handlers.Deps{
+		Logger: slog.Default(),
+		Tel: &handlers.Telemetry{
+			Tracer: otel.Tracer(service),
+			Meter:  otel.Meter(service),
+		},
+	}
 }
 
-// Run boots the full stack — logger, OTel SDK, pool, sessions, server —
-// and serves until ctx is done, then drains gracefully. main.go calls it
-// with env config; the smoke test calls it with test config to prove the
-// real wiring serves. OTel failures never block startup (warning + noop);
-// everything else fails fast. Callers own slog.SetDefault.
-func Run(ctx context.Context, cfg Config) error {
-	if cfg.DatabaseURL == "" || cfg.Addr == "" || cfg.Service == "" {
-		return fmt.Errorf("server: DatabaseURL, Addr and Service are required")
-	}
-	logger := slog.New(obs.NewLogHandler(cfg.Service))
-
-	otelShutdown, otelErr := obs.SetupOTelSDK(ctx, cfg.Service)
-	if otelErr != nil {
-		logger.Warn("otel disabled", "reason", otelErr)
-		otelShutdown = nil
-	}
-	defer func() {
-		if otelShutdown == nil {
-			return
+// BindAppHooks registers everything on app: the dev superuser seed, the OTel
+// span middleware, the PB-logs forwarder, and all domain routes. Called once
+// in main; tests call it on their own test app instance.
+func BindAppHooks(app core.App, d handlers.Deps) {
+	// Dev-only dummy superuser so the Dashboard is one click away.
+	// Production (APP_ENV=production) is never touched, and an existing
+	// superuser is never overwritten. Tests are unaffected: their apps
+	// finish bootstrap before this is bound.
+	app.OnBootstrap().BindFunc(func(e *core.BootstrapEvent) error {
+		if err := e.Next(); err != nil {
+			return err
 		}
-		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := otelShutdown(shutdown); err != nil {
-			logger.Error("shutdown otel SDK", "error", err)
+		return ensureDevSuperuser(e.App)
+	})
+	// Forward PB system logs (request logger, auth failures, hook errors)
+	// into the default slog pipeline so they reach stderr + OTLP. Handler
+	// logs already fan out via the obs handler, so skip those (tagged
+	// via=handlers) instead of echoing them back.
+	app.OnModelCreate(core.LogsTableName).BindFunc(func(e *core.ModelEvent) error {
+		if l, ok := e.Model.(*core.Log); ok && l.Data["via"] != "handlers" {
+			slog.Default().Info("pocketbase",
+				"message", l.Message, "level", l.Level, "data", l.Data)
 		}
-	}()
+		return e.Next()
+	})
 
-	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+		if !strings.EqualFold(os.Getenv("APP_ENV"), "production") {
+			// Never auto-open a browser in dev: PB's default installer
+			// func runs `open <url>`. The dev seed above should make this
+			// unreachable; this is just a quiet backstop.
+			se.InstallerFunc = func(core.App, *core.Record, string) error {
+				slog.Warn("dashboard superuser missing (dev): run go run . superuser upsert EMAIL PASS")
+				return nil
+			}
+		}
+		se.Router.BindFunc(otelMiddleware(d))
+		todo.Register(se, d)
+		auth.Register(se, d)
+		static.Register(se)
+		return se.Next()
+	})
+}
+
+// devSuperuserEmail/Password are dummy Dashboard credentials, dev only.
+const (
+	devSuperuserEmail    = "admin@admin.com"
+	devSuperuserPassword = "admin"
+)
+
+// ensureDevSuperuser creates the dummy superuser on non-production boots
+// that have none yet. Production is skipped entirely; existing superusers
+// are left alone.
+func ensureDevSuperuser(app core.App) error {
+	if strings.EqualFold(os.Getenv("APP_ENV"), "production") {
+		return nil
+	}
+	total, err := app.CountRecords(core.CollectionNameSuperusers, dbx.Not(dbx.HashExp{
+		// Mirror PB's own installer check: the ephemeral installer record
+		// doesn't count as a real superuser.
+		"email": core.DefaultInstallerEmail,
+	}))
+	if err != nil || total > 0 {
+		return err
+	}
+	collection, err := app.FindCollectionByNameOrId(core.CollectionNameSuperusers)
 	if err != nil {
-		return fmt.Errorf("create database pool: %w", err)
+		return err
 	}
-	defer pool.Close()
-	if err := pool.Ping(ctx); err != nil {
-		return fmt.Errorf("ping database: %w", err)
+	record := core.NewRecord(collection)
+	record.Set("email", devSuperuserEmail)
+	record.Set("password", devSuperuserPassword)
+	// NoValidate: "admin" is shorter than the password min-length rule.
+	// Fine for a local dummy, never used in production (gated above).
+	if err := app.SaveNoValidate(record); err != nil {
+		return err
 	}
+	slog.Warn("dev superuser created (non-production only)",
+		"email", devSuperuserEmail, "password", devSuperuserPassword)
+	return nil
+}
 
-	sessions := auth.NewSessionManager(pool)
-	deps := handlers.Deps{
-		Queries:  db.New(pool),
-		Sessions: sessions, Logger: logger,
-		Tel: &handlers.Telemetry{Tracer: otel.Tracer(cfg.Service), Meter: otel.Meter(cfg.Service)},
-	}
-	srv := NewServer(deps, cfg.Addr)
-
-	srvErr := make(chan error, 1)
-	go func() {
-		logger.Info("listening", "address", "http://"+cfg.Addr)
-		srvErr <- srv.ListenAndServe()
-	}()
-
-	select {
-	case err := <-srvErr:
-		// Startup failed: nothing to drain, and the pool never served
-		// traffic, so exiting directly is safe.
-		if !errors.Is(err, http.ErrServerClosed) {
+// otelMiddleware runs before every domain handler: it stashes the PB app in
+// ctx (so the obs log handler fans out to the dashboard) and wraps the
+// request in a span named after the matched route pattern (falling back to
+// method + path), so all routes don't collapse into one span name.
+func otelMiddleware(d handlers.Deps) func(e *core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		name := e.Request.Method + " " + e.Request.URL.Path
+		if p := e.Request.Pattern; p != "" {
+			name = p
+		}
+		ctx := obs.ContextWithApp(e.Request.Context(), e.App)
+		ctx, span := d.Tel.Tracer.Start(ctx, name)
+		defer span.End()
+		e.Request = e.Request.WithContext(ctx)
+		if err := e.Next(); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
 			return err
 		}
 		return nil
-	case <-ctx.Done():
-		// Drain in-flight work within budget.
-		shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		if err := srv.Shutdown(shutdown); err != nil {
-			return err
-		}
-		logger.Info("stopped")
-		return nil
 	}
-}
-
-// NewServer builds the production-ready http.Server around NewHandler.
-func NewServer(d handlers.Deps, addr string) *http.Server {
-	return &http.Server{
-		Addr:              addr,
-		Handler:           NewHandler(d),
-		ReadHeaderTimeout: 5 * time.Second,
-		WriteTimeout:      10 * time.Second,
-	}
-}
-
-// NewHandler registers every domain and wraps the mux. Static assets come
-// from the embedded FS, so no dir argument is needed in any environment.
-func NewHandler(d handlers.Deps) http.Handler {
-	mux := http.NewServeMux()
-	todo.Register(mux, d)
-	auth.Register(mux, d)
-	static.Register(mux)
-	return otelhttp.NewHandler(d.Sessions.LoadAndSave(mux), "server")
 }

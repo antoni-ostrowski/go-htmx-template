@@ -2,5 +2,9 @@
 static/css/app.css
 # Air hot-reload output.
 tmp/
+# PocketBase data (SQLite, uploads, logs). Never commit; back up instead.
+pb_data/
+# Test leftovers.
+test_pb_data/
 go-html-todo
 go-htmx-template

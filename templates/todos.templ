@@ -1,20 +1,22 @@
 package templates
 
-import db "go-htmx-template/db/sqlc"
 import "fmt"
 import btn "go-htmx-template/templates/components/button"
 import icon "go-htmx-template/templates/components/icon"
 import inp "go-htmx-template/templates/components/input"
+import assets "go-htmx-template/static"
 
-// Page is FULL page. Only the GET / handler uses it. username is "" when
+// Page is FULL page. Only the GET / handler uses it. email is "" when
 // signed out, and then the page links to sign-in instead of the todo form.
-templ Page(todos []db.Todo, username string) {
+// When signed in, realtime.js subscribes to the todos collection over PB
+// realtime and triggers a fragment refetch on every change.
+templ Page(todos []Todo, email string) {
 	@Layout("Todos") {
 		<main class="mx-auto max-w-xl px-4 py-10">
 			<h1 class="text-2xl font-semibold tracking-tight">todos</h1>
-			if username != "" {
+			if email != "" {
 				<div class="mt-2 flex items-center justify-between text-sm text-neutral-500">
-					<span>signed in as <span class="font-medium text-neutral-700">{ username }</span></span>
+					<span>signed in as <span class="font-medium text-neutral-700">{ email }</span></span>
 					<form method="post" action="/signout">
 						@btn.Button(btn.Props{Type: btn.TypeSubmit, Variant: btn.VariantGhost, Size: btn.SizeSm}) {
 							sign out
@@ -30,17 +32,18 @@ templ Page(todos []db.Todo, username string) {
 					class="mt-4 flex gap-2"
 				>
 					@inp.Input(inp.Props{
-						Name: "title",
+						Name:        "title",
 						Placeholder: "What needs to be done?",
-						Required: true,
-						Class: "flex-1 bg-white",
-						Attributes: templ.Attributes{"autocomplete": "off"},
+						Required:    true,
+						Class:       "flex-1 bg-white",
+						Attributes:  templ.Attributes{"autocomplete": "off"},
 					})
 					@btn.Button(btn.Props{Type: btn.TypeSubmit}) {
 						Add
 					}
 				</form>
 				<span id="form-err"></span>
+				<script src={ "/static/js/realtime.js?v=" + assets.Version }></script>
 			} else {
 				<div class="mt-2 flex items-center gap-2">
 					@btn.Button(btn.Props{Href: "/signin", Size: btn.SizeSm}) {
@@ -53,14 +56,22 @@ templ Page(todos []db.Todo, username string) {
 				</div>
 			}
 			@List(todos)
-			<p class="mt-6 text-xs text-neutral-400">Full page via GET /. Fragments via POST/DELETE /todos.</p>
+			<p class="mt-6 text-xs text-neutral-400">Full page via GET /. Fragments via POST/DELETE /todos. Live updates via PB realtime.</p>
 		</main>
 	}
 }
 
 // List is FRAGMENT. Mutation handlers return this, htmx swaps #todo-list.
-templ List(todos []db.Todo) {
-	<ul id="todo-list" class="mt-4 divide-y divide-neutral-200 rounded-md border border-neutral-200 bg-white">
+// Realtime events refetch it via GET /todos-fragment.
+templ List(todos []Todo) {
+	<ul
+		id="todo-list"
+		hx-get="/todos-fragment"
+		hx-trigger="pb-todos-changed from:body"
+		hx-swap="outerHTML"
+		data-realtime-topic="todos/*"
+		class="mt-4 divide-y divide-neutral-200 rounded-md border border-neutral-200 bg-white"
+	>
 		for _, t := range todos {
 			@Item(t)
 		}
@@ -70,15 +81,15 @@ templ List(todos []db.Todo) {
 	</ul>
 }
 
-templ Item(t db.Todo) {
+templ Item(t Todo) {
 	<li class="flex items-center gap-2 px-3 py-1.5">
 		@btn.Button(btn.Props{
 			Variant: btn.VariantGhost,
-			Class: "flex-1 justify-start font-normal",
+			Class:   "flex-1 justify-start font-normal",
 			Attributes: templ.Attributes{
-				"hx-post": fmt.Sprintf("/todos/%d/toggle", t.ID),
+				"hx-post":   fmt.Sprintf("/todos/%s/toggle", t.ID),
 				"hx-target": "#todo-list",
-				"hx-swap": "outerHTML",
+				"hx-swap":   "outerHTML",
 			},
 		}) {
 			if t.Done {
@@ -91,12 +102,12 @@ templ Item(t db.Todo) {
 		}
 		@btn.Button(btn.Props{
 			Variant: btn.VariantGhost,
-			Size: btn.SizeIconSm,
-			Class: "text-red-600 hover:text-red-700",
+			Size:    btn.SizeIconSm,
+			Class:   "text-red-600 hover:text-red-700",
 			Attributes: templ.Attributes{
-				"hx-delete": fmt.Sprintf("/todos/%d", t.ID),
-				"hx-target": "#todo-list",
-				"hx-swap": "outerHTML",
+				"hx-delete":  fmt.Sprintf("/todos/%s", t.ID),
+				"hx-target":  "#todo-list",
+				"hx-swap":    "outerHTML",
 				"aria-label": fmt.Sprintf("delete %s", t.Title),
 			},
 		}) {
