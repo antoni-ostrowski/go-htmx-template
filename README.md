@@ -58,10 +58,48 @@ OAuth2, OTP, MFA, and password reset are available as collection options.
 ## Realtime
 
 PB streams record events over `/api/realtime` (SSE, governed by the
-collection API rules: `owner = @request.auth.id`). `static/js/realtime.js`
-subscribes to `todos/*` with the cookie token and fires
-`pb-todos-changed`, which refetches the `#todo-list` fragment via
-`GET /todos-fragment`. No Redis, no extra process.
+collection API rules: `owner = @request.auth.id`).
+`static/js/realtime.js` (no SDK, ~70 lines) bridges it into htmx: it
+collects every `[data-realtime-topic]` on the page, subscribes to them in
+one call with the cookie token, and fires a DOM event per record change.
+No Redis, no extra process.
+
+To make any list live, three things:
+
+```html
+<ul
+  id="todo-list"
+  hx-get="/todos-fragment"
+  hx-trigger="pb-todos-changed from:body"
+  hx-swap="outerHTML"
+  data-realtime-topic="todos/*"
+>
+  <!-- rows -->
+</ul>
+```
+
+1. `data-realtime-topic="COLL/*"` (whole collection) or `"COLL/RECORD_ID"`
+   (one row) — what to subscribe to.
+2. `hx-get` + `hx-trigger="<event> from:body"` — what to refetch when it
+   changes. The event name is derived from your own `hx-trigger` (first
+   word of the clause carrying `from:`, any order; override with
+   `data-realtime-event="..."` when needed).
+3. A fragment route returning just the list HTML:
+
+```go
+se.Router.GET("/todos-fragment", auth.RequireAuth(func(e *core.RequestEvent) error {
+    todos, err := listTodos(e.App, e.Auth.Id)
+    if err != nil {
+        return handlers.WriteError(e, handlers.WriteErrorOpts{Err: err, Code: http.StatusInternalServerError})
+    }
+    return handlers.Render(e, templates.List(todos))
+}))
+```
+
+Edits from anywhere (your handlers, the dashboard, the API) push an event;
+only subscribers passing that collection's rules receive it. Anonymous
+pages can subscribe too — they just only get what the rules allow guests
+to see.
 
 ## UI (htmx)
 
