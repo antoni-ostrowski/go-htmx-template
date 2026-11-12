@@ -56,7 +56,6 @@ func handleSignup(d handlers.Deps) func(e *core.RequestEvent) error {
 		if err := login(e, record); err != nil {
 			return handlers.WriteError(e, handlers.WriteErrorOpts{Err: err, Code: http.StatusInternalServerError})
 		}
-		e.Response.Header().Set("Clear-Site-Data", `"cache"`)
 		return handlers.Redirect(e, "/")
 	}
 }
@@ -78,7 +77,6 @@ func handleSignin(d handlers.Deps) func(e *core.RequestEvent) error {
 		if err := login(e, record); err != nil {
 			return handlers.WriteError(e, handlers.WriteErrorOpts{Err: err, Code: http.StatusInternalServerError})
 		}
-		e.Response.Header().Set("Clear-Site-Data", `"cache"`)
 		return handlers.Redirect(e, "/")
 	}
 }
@@ -86,7 +84,6 @@ func handleSignin(d handlers.Deps) func(e *core.RequestEvent) error {
 func handleSignout(d handlers.Deps) func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		logout(e)
-		e.Response.Header().Set("Clear-Site-Data", `"cache"`)
 		return handlers.Redirect(e, "/signin")
 	}
 }
